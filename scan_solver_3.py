@@ -154,7 +154,16 @@ BODIES = {
     "opm_nissee": Body(30_000, 27_924.872, 3.9716933e8, 5_000, 7_366_476.6),
 
     "opm_plock": Body(189_000, 106_309.61, 5.1844895e10, 5_000, 3.1276234e8),
-    "opm_karen": Body(85_050, 106_327.76, 4.6818042e9, 2_500, 939_354.32)
+    "opm_karen": Body(85_050, 106_327.76, 4.6818042e9, 2_500, 939_354.32),
+    
+    # Nem Planet Mod
+    "nem": Body(443_000, 164_460, 8.81742832e11, 120_000, 7_287_000),
+    "nem_gilly": Body(13_000, 28_255, 8.289_449_8e6, 5_000, 30_000),
+
+    # Minor Planets Expansion MOD
+    "mpe_zore": Body(34_500, 15000, 1.73048e11, 17_750, 8.236e6)
+
+    #"planet": Body("radius", "rotation_period", "standard_gravity", "safe_alt", "soi")
 }
 
 
@@ -182,7 +191,11 @@ SCANNERS = {
     "scan-rx": Scanner(3, 100_000, 500_000, 750_000),   # ResHi
     "vs-1": Scanner(1.5, 20_000, 70_000, 250_000),      # VisHi
     "vs-11": Scanner(4, 100_000, 200_000, 1_000_000),   # Anom, VisHi
-    "vs-3": Scanner(2.5, 70_000, 350_000, 500_000)      # Anom, VisHi
+    "vs-3": Scanner(2.5, 70_000, 350_000, 500_000),     # Anom, VisHi
+
+    "trix": Scanner(4, 5_000, 250_000, 500_000),        # Added Part. Biome, Anom
+    "h2rs": Scanner(2, 5_000, 750_000, 800_000),        # Added Part. AltHi
+    "msip": Scanner(4, 5_000, 250_000, 500_000)         # Added Part. Biome
 }
 
 
