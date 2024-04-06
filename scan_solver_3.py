@@ -78,6 +78,7 @@ from itertools import count
 from math import pi, sqrt, inf, gcd, ceil, floor
 from typing import Optional
 
+import argparse
 
 @dataclass
 class Body:
@@ -728,9 +729,14 @@ def find_fastest(body: Body, *scanners: Scanner) \
     return None
 
 
-def get_user_input() -> tuple[Body, list[Scanner]]:
+def get_user_input(args: argparse.Namespace) -> tuple[Body, list[Scanner]]:
     CUSTOM = "custom"
-    body_name = input(f"body [name|'{CUSTOM}']: ").lower()
+
+    if args.body:
+        body_name = args.body.lower()
+    else:
+        body_name = input(f"body [name|'{CUSTOM}']: ").lower()
+
     body = None
     if body_name == CUSTOM:
         r = float(input("\tradius [m]: "))
@@ -740,11 +746,17 @@ def get_user_input() -> tuple[Body, list[Scanner]]:
         soi = float(input("\tsoi radius [m]: "))
         body = Body(r, t, mu, a, soi)
     else:
+        if body_name not in BODIES:
+            raise ValueError("Given Body not Supported: " + body_name)
         body = BODIES[body_name]
 
-    scanner_names = input(f"scanners [name|'{CUSTOM}'](space-separated): ") \
-        .lower()
-    scanner_names = scanner_names.split(" ")
+    if args.scanners:
+        scanner_names = args.scanners.lower()
+        scanner_names = scanner_names.split(",")
+    else:
+        scanner_names = input(f"scanners [name|'{CUSTOM}'](space-separated): ") \
+            .lower()
+        scanner_names = scanner_names.split(" ")
     scanners = []
     custom_n = 1
     for name in scanner_names:
@@ -757,12 +769,29 @@ def get_user_input() -> tuple[Body, list[Scanner]]:
             mx = float(input("\tmax altitude [m]: "))
             scanners.append(Scanner(f, mn, b, mx))
         else:
+            if name not in SCANNERS:
+                raise ValueError("Given Scanner is not Supported: " + name)
             scanners.append(SCANNERS[name])
     return body, scanners
 
 
 def main():
-    body, scanners = get_user_input()
+
+    parser = argparse.ArgumentParser(description="Scan Sat Optimal Solution Calculator")
+
+    parser.add_argument('-b',
+                        '--body',
+                        help="Body of Interest.",
+                        type=str)
+
+    parser.add_argument('-s',
+                        '--scanners',
+                        help="Comma Separated List of Equiped Scanners.",
+                        type=str)
+    
+    args = parser.parse_args()
+
+    body, scanners = get_user_input(args)
 
     min_alt, max_alt = 0, inf
     for scanner in scanners:
