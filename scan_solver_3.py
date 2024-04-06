@@ -23,7 +23,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-                                Scan-Solver 3.0
+                                Scan-Solver 3.1
+
+                               Updated by jthero3
 
    This program is designed to find the most efficient (time-wise) orbit for
 completing a surface scan with SCAN Sat. This is done by searching orbits with
