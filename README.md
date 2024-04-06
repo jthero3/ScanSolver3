@@ -11,6 +11,14 @@ to speed up mapping, and also help guarentee 100% surface coverage from the scan
 When run, the program will prompt inputs for the planet/object being targeted, and a list of the surface scanners being used.
 In the Python version any of these can be `custom` creating further prompts for the specific parameters that define it.
 
+Command line arguments are also supported. Currently not supporting Custom Arguments.
+
+`-b`/`--body` : Specify the body of interest.
+
+`-s`/`--scanners` : Specify a list of comma separated scanners.
+
+ex: `python scan_solver_3.py -b mun -s trix,sar-x,vs-3`
+
 If multiple scanners are specified, the program finds the fastest orbit that satisfies all of them, though faster orbits may exist for individual scanners, or even each individual scanner.
 
 The program outputs a list showing the orbital parameters required for the solutions it found (currently assumes 90 degree inclination) in the following format
