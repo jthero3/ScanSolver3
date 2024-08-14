@@ -165,7 +165,17 @@ BODIES = {
     "nem_eve": Body(700_000,  164472.87, 8.1717302e12, 90_000, 85_109_365),
 
     # Minor Planets Expansion MOD
-    "mpe_zore": Body(34_500, 15000, 1.73048e11, 17_750, 8.236e6)
+    "mpe_zore": Body(34_500, 15000, 1.73048e11, 17_750, 8.236e6),
+    "mpe_68p": Body(550, 18_000, 4.45e2, 1_880, 35_000),
+
+    # Quack Pack MOD
+    "quack_blas": Body(811_000, 61_672, 8.779e12, 80_000, 17_868_000),
+    "quack_geet": Body(10_630, 10_654, 4.266e7, 8_466, 22_000),
+
+    "quack_jot": Body(8_339_000, 77_253, 3.948e14, 1_200_000, 51_592_000),
+    "quack_subon": Body(16_000, 16_460.7360062, 1.042e8, 10_419, 33_000),
+    
+    "quack_cind": Body(571_000, 86_880, 3.648e12, 100_000, 3_809_000),
 
     #"planet": Body("radius", "rotation_period", "standard_gravity", "safe_alt", "soi")
 }
@@ -199,7 +209,8 @@ SCANNERS = {
 
     "trix": Scanner(4, 5_000, 250_000, 500_000),        # Added Part. Biome, Anom
     "h2rs": Scanner(2, 5_000, 750_000, 800_000),        # Added Part. AltHi
-    "msip": Scanner(4, 5_000, 250_000, 500_000)         # Added Part. Biome
+    "msip": Scanner(4, 5_000, 250_000, 500_000),        # Added Part. Biome
+    "vor-sar": Scanner(2, 5_000, 750_000, 800_000),     # Added Part. AltHi
 }
 
 
