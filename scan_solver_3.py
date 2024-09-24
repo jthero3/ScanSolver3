@@ -109,6 +109,12 @@ class Body:
         """
         return (p/q)**(2/3) * self.geo_radius
 
+    def get_ap_pe(self, a, e):
+        ap = a * (1 + e) - self.radius
+        pe = a * (1 - e) - self.radius
+        return ap, pe
+
+
 
 # information on planets in the base game and outer-planets mod (prefixed opm_)
 # data is from wikis so may not be 100% accurate.
@@ -828,9 +834,15 @@ def main():
             p, q = solution.p, solution.q
             e_min, e_max = solution.e_min, solution.e_max
             a = body.get_sma(p, q)
+            ap_min, pe_min = body.get_ap_pe(a, e_min)
+            ap_max, pe_max = body.get_ap_pe(a, e_max)
 
-            print(f"({p:3}/{q:3})\t\ta = {a:.3f}m\t\t"
-                  f"e = {e_min:.5f} to {e_max:.5f}")
+            print(
+                f"({p:3}/{q:3})\t\ta = {a:.3f}m\t\t"
+                f"e = {e_min:.5f} to {e_max:.5f}\t\t"
+                f"e_min Ap = {ap_min:.3f}m Pe = {pe_min:.3f}m\t\t"
+                f"e_max Ap = {ap_max:.3f}m Pe = {pe_max:.3f}m"
+            )
 
 
 def test_all():
