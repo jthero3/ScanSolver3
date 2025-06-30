@@ -51,7 +51,7 @@ is the apparent increase in fov due to latitude, and the increase in fov due to
 
                                   M = 180 / q
 
-                 is the required field of view for each track.                 
+                 is the required field of view for each track.
 
                         'e' is the orbital eccentricity
                  'x' is cos of the latitude the orbit is over
@@ -74,13 +74,17 @@ this way for consistency, but it is important to know when trying to understand
  simpler, but may under-estimate the gains - especially when using higher fov
                          scanners on smaller planets.
 """
-from collections.abc import Iterator, Callable
+import argparse
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from itertools import count
-from math import pi, sqrt, inf, gcd, ceil, floor
+from math import ceil, floor, gcd, inf, pi, sqrt
 from typing import Optional
 
-import argparse
+from tabulate import tabulate
+
+DAY_LENGTH_HOURS = 6
+
 
 @dataclass
 class Body:
@@ -89,6 +93,7 @@ class Body:
     also includes method for calculating the semi-major axis of an orbit with
     period p/q T where T is the period of a synchronous orbit
     """
+
     radius: float
     rotation_period: float
     standard_gravity: float
@@ -100,44 +105,36 @@ class Body:
     def __post_init__(self):
         mu = self.standard_gravity
         t = self.rotation_period
-        self.geo_radius = (mu * t**2 / (4 * pi**2)) ** (1/3)
+        self.geo_radius = (mu * t**2 / (4 * pi**2)) ** (1 / 3)
 
     def get_sma(self, p: int, q: int) -> float:
         """
         Finds the semi-major axis required for an orbit with period (p/q)T
         where T is the sidereal rotation period of the body being orbited.
         """
-        return (p/q)**(2/3) * self.geo_radius
+        return (p / q) ** (2 / 3) * self.geo_radius
 
 
 # information on planets in the base game and outer-planets mod (prefixed opm_)
 # data is from wikis so may not be 100% accurate.
 BODIES = {
     "kerbol": Body(261_600_000, 432_000, 1.1723328e18, 600_000, inf),
-
     "moho": Body(250_000, 1_210_000, 1.6860938e11, 10_000, 9_646_663),
-
     "eve": Body(700_000, 80_500, 8.1717302e12, 90_000, 85_109_365),
     "gilly": Body(13_000, 28_255, 8.289_449_8e6, 5_000, 126_123.27),
-
     "kerbin": Body(600_000, 21_549.425, 3.5316e12, 70_000, 84_159_286),
     "mun": Body(200_000, 138_984.38, 6.5138398e10, 10_000, 2_429_559.1),
     "minmus": Body(60_000, 40_400, 1.7658e9, 5_000, 2_247_428.4),
-
     "duna": Body(320_000, 65_517.859, 3.0136321e11, 50_000, 47_921_949),
     "ike": Body(130_000, 65_517.862, 1.8568369e10, 10_000, 1_049_598.9),
-
     "dres": Body(138_000, 34_800, 2.1484489e10, 10_000, 32_832_840),
-
     "jool": Body(6_000_000, 36_000, 2.82528e14, 200_000, 2.4559852e9),
     "laythe": Body(500_000, 52_980.879, 1.962e12, 50_000, 3_723_645.8),
     "vall": Body(300_000, 105_962.09, 2.074815e11, 25_000, 2_406_401.4),
     "tylo": Body(600_000, 211_926.36, 2.82528e12, 30_000, 10_856_518),
     "bop": Body(65_000, 544_507.43, 2.4868349e9, 25_000, 1_221_060.9),
     "pol": Body(44_000, 901_902.62, 7.2170208e8, 5_000, 1_042_138.9),
-
     "eeloo": Body(210_000, 19_460, 7.4410815e10, 5_000, 119_082_940),
-
     # OUTER PLANETS MOD
     "opm_sarnus": Body(5_300_000, 28_500, 8.2089702e13, 580_000, 2.7401267e9),
     "opm_hale": Body(6_000, 23_555.314, 8.1199062e5, 1_000, 41_000),
@@ -145,45 +142,38 @@ BODIES = {
     "opm_eeloo": Body(210_000, 57_914.784, 7.4410815e10, 5_000, 1_159_066.2),
     "opm_slate": Body(540_000, 192_771.15, 1.9788564e12, 10_000, 9_597_157.6),
     "opm_tekto": Body(280_000, 666_154.48, 1.9244099e11, 95_000, 8_637_005.2),
-
     "opm_urlum": Body(2_177_000, 41_000, 1.1944574e13, 325_000, 2.5622607e9),
     "opm_polta": Body(220_000, 73_017.111, 9.0181953e10, 5_000, 1_661_114.9),
     "opm_priax": Body(74_000, 73_017.111, 3.3831766e9, 5_000, 446_767.6),
     "opm_wal": Body(370_000, 1_009_410.8, 4.9673624e11, 10_000, 18_933_505),
     "opm_tal": Body(22_000, 48_874.483, 2.1358884e8, 2_000, 139_966.65),
-
     "opm_neidon": Body(2_145_000, 40_250, 1.4167882e13, 260_000, 4.4157238e9),
     "opm_thatmo": Body(286_000, 306_442.67, 1.8609758e11, 35_000, 4_709_379.1),
     "opm_nissee": Body(30_000, 27_924.872, 3.9716933e8, 5_000, 7_366_476.6),
-
     "opm_plock": Body(189_000, 106_309.61, 5.1844895e10, 5_000, 3.1276234e8),
     "opm_karen": Body(85_050, 106_327.76, 4.6818042e9, 2_500, 939_354.32),
-    
     # Nem Planet Mod
     "nem": Body(443_000, 164_460, 8.81742832e11, 120_000, 7_287_000),
     "nem_gilly": Body(13_000, 28_255, 8.289_449_8e6, 5_000, 30_000),
-    "nem_eve": Body(700_000,  164472.87, 8.1717302e12, 90_000, 85_109_365),
-
+    "nem_eve": Body(700_000, 164472.87, 8.1717302e12, 90_000, 85_109_365),
     # Minor Planets Expansion MOD
     "mpe_zore": Body(34_500, 15000, 1.73048e11, 17_750, 8.236e6),
     "mpe_68p": Body(550, 18_000, 4.45e2, 1_880, 35_000),
-
+    "mpe_edas": Body(2_000, 14_000, 1.016e6, 6_095, 326_000),
     # Quack Pack MOD
     "quack_blas": Body(811_000, 61_672, 8.779e12, 80_000, 17_868_000),
     "quack_geet": Body(10_630, 10_654, 4.266e7, 8_466, 22_000),
-
     "quack_jot": Body(8_339_000, 77_253, 3.948e14, 1_200_000, 51_592_000),
     "quack_subon": Body(16_000, 16_460.7360062, 1.042e8, 10_419, 33_000),
-    
     "quack_cind": Body(571_000, 86_880, 3.648e12, 100_000, 3_809_000),
-
-    #"planet": Body("radius", "rotation_period", "standard_gravity", "safe_alt", "soi")
+    # "planet": Body("radius", "rotation_period", "standard_gravity", "safe_alt", "soi")
 }
 
 
 @dataclass
 class Scanner:
     """Dataclass to hold scanner properties relevant to scan completion"""
+
     fov: float
     altitude_min: float
     altitude_best: float
@@ -192,31 +182,31 @@ class Scanner:
 
 # scanners included in SCANSat (accurate as of v20.4)
 SCANNERS = {
-    "ms-1": Scanner(3, 20_000, 70_000, 250_000),        # Biome, VisLo
-    "ms-2a": Scanner(4, 100_000, 500_000, 750_000),     # Biome, VisLo, ResLo
-    "ms-r": Scanner(1.5, 70_000, 300_000, 400_000),     # Biome, VisLo, ResLo
-    "r-3b": Scanner(1.5, 5_000, 70_000, 250_000),       # AltLo
-    "r-eo-1": Scanner(3.5, 50_000, 100_000, 500_000),   # AltLo
-    "sar-c": Scanner(3, 500_000, 700_000, 750_000),     # AltHi
-    "sar-l": Scanner(4, 250_000, 500_000, 1_000_000),   # AltHi, Biome
-    "sar-x": Scanner(1.5, 70_000, 250_000, 500_000),    # AltHi
-    "scan-r": Scanner(1, 20_000, 70_000, 250_000),      # ResHi
+    "ms-1": Scanner(3, 20_000, 70_000, 250_000),  # Biome, VisLo
+    "ms-2a": Scanner(4, 100_000, 500_000, 750_000),  # Biome, VisLo, ResLo
+    "ms-r": Scanner(1.5, 70_000, 300_000, 400_000),  # Biome, VisLo, ResLo
+    "r-3b": Scanner(1.5, 5_000, 70_000, 250_000),  # AltLo
+    "r-eo-1": Scanner(3.5, 50_000, 100_000, 500_000),  # AltLo
+    "sar-c": Scanner(3, 500_000, 700_000, 750_000),  # AltHi
+    "sar-l": Scanner(4, 250_000, 500_000, 1_000_000),  # AltHi, Biome
+    "sar-x": Scanner(1.5, 70_000, 250_000, 500_000),  # AltHi
+    "scan-r": Scanner(1, 20_000, 70_000, 250_000),  # ResHi
     "scan-r2": Scanner(2.5, 70_000, 250_000, 500_000),  # ResHi
-    "scan-rx": Scanner(3, 100_000, 500_000, 750_000),   # ResHi
-    "vs-1": Scanner(1.5, 20_000, 70_000, 250_000),      # VisHi
-    "vs-11": Scanner(4, 100_000, 200_000, 1_000_000),   # Anom, VisHi
-    "vs-3": Scanner(2.5, 70_000, 350_000, 500_000),     # Anom, VisHi
-
-    "trix": Scanner(4, 5_000, 250_000, 500_000),        # Added Part. Biome, Anom
-    "h2rs": Scanner(2, 5_000, 750_000, 800_000),        # Added Part. AltHi
-    "msip": Scanner(4, 5_000, 250_000, 500_000),        # Added Part. Biome
-    "vor-sar": Scanner(2, 5_000, 750_000, 800_000),     # Added Part. AltHi
+    "scan-rx": Scanner(3, 100_000, 500_000, 750_000),  # ResHi
+    "vs-1": Scanner(1.5, 20_000, 70_000, 250_000),  # VisHi
+    "vs-11": Scanner(4, 100_000, 200_000, 1_000_000),  # Anom, VisHi
+    "vs-3": Scanner(2.5, 70_000, 350_000, 500_000),  # Anom, VisHi
+    "trix": Scanner(4, 5_000, 250_000, 500_000),  # Added Part. Biome, Anom
+    "h2rs": Scanner(2, 5_000, 750_000, 800_000),  # Added Part. AltHi
+    "msip": Scanner(4, 5_000, 250_000, 500_000),  # Added Part. Biome
+    "vor-sar": Scanner(2, 5_000, 750_000, 800_000),  # Added Part. AltHi
 }
 
 
 @dataclass
 class SolutionParams:
     """Dataclass to handle parameters for found solutions"""
+
     p: int
     q: int
     e_min: float
@@ -247,8 +237,7 @@ def coprimes_of(n: int, start: int = 1, end: int = inf) -> Iterator[int]:
         k += 1
 
 
-def get_scaled_fov_and_altitude(scanner: Scanner, body: Body) \
-        -> tuple[float, float]:
+def get_scaled_fov_and_altitude(scanner: Scanner, body: Body) -> tuple[float, float]:
     """
     Find the maximum fov the scanner will achieve in orbit. if this exceeds
     FOV_MAX the 'ideal' altitude will be lowered until they match.
@@ -272,11 +261,13 @@ def get_scaled_fov_and_altitude(scanner: Scanner, body: Body) \
     return fov, alt
 
 
-def find_root_near(fx: Callable[[float], float],
-                   df_dx: Callable[[float], float],
-                   x0: float,
-                   direction: int,
-                   max_dx: float = 1e-2) -> Optional[float]:
+def find_root_near(
+    fx: Callable[[float], float],
+    df_dx: Callable[[float], float],
+    x0: float,
+    direction: int,
+    max_dx: float = 1e-2,
+) -> Optional[float]:
     """
     Finds a root fx(x) = 0 near x0. Only searches in the direction specified.
 
@@ -303,17 +294,17 @@ def find_root_near(fx: Callable[[float], float],
 
         y = fx(x)
         dy = df_dx(x)
-        r = y/dy if dy != 0 else 2*TOLERANCE
+        r = y / dy if dy != 0 else 2 * TOLERANCE
 
         # limit distance moved
         if abs(r) > max_dx:
             r = max_dx if r > 0 else -max_dx
 
         # if y has flipped (+ -> - or - -> +) change direction: passed root
-        sign = int(direction) if y0*y > 0 else -int(direction)
+        sign = int(direction) if y0 * y > 0 else -int(direction)
 
         # ensure moving in correct direction
-        if r*sign < 0:
+        if r * sign < 0:
             r = -r
         x += r
 
@@ -324,8 +315,7 @@ def find_root_near(fx: Callable[[float], float],
     return x
 
 
-def find_root_between(fx: Callable[[float], float], x0: float, x1: float) \
-        -> float:
+def find_root_between(fx: Callable[[float], float], x0: float, x1: float) -> float:
     """
     Finds a root between the specified starting values.
 
@@ -344,7 +334,7 @@ def find_root_between(fx: Callable[[float], float], x0: float, x1: float) \
     """
 
     y0, y1 = fx(x0), fx(x1)
-    if VERBOSE and y0*y1 > 0:
+    if VERBOSE and y0 * y1 > 0:
         print("WARN: no guaranteed root between x0 and x1.")
 
     # bisect space until near root
@@ -359,7 +349,7 @@ def find_root_between(fx: Callable[[float], float], x0: float, x1: float) \
             x1 = x
             y1 = y
 
-    if y0*y1 > 0:  # both same sign -> no root found
+    if y0 * y1 > 0:  # both same sign -> no root found
         if VERBOSE:
             print("WARN: No root found")
         if abs(y0) < abs(y1):  # return x with smallest y (assumed closest)
@@ -368,10 +358,12 @@ def find_root_between(fx: Callable[[float], float], x0: float, x1: float) \
     return (x0 + x1) / 2
 
 
-def find_limit(fxy: Callable[[float, float], float],
-               df_dx: Callable[[float, float], float],
-               df_dy: Callable[[float, float], float],
-               side: int) -> Optional[float]:
+def find_limit(
+    fxy: Callable[[float, float], float],
+    df_dx: Callable[[float, float], float],
+    df_dy: Callable[[float, float], float],
+    side: int,
+) -> Optional[float]:
     """
     Find the root with the largest y value that can be reached from the passed
     side of the domain (BOTTOM -> y = 0, TOP -> y = 1) and return its y value.
@@ -382,17 +374,18 @@ def find_limit(fxy: Callable[[float, float], float],
     :param side: side of plot to start on (BOTTOM: 0 or TOP: 1)
     :return: the y value of the root reached, or None if continuum
     """
-    sign = 1 - 2*side  # 1 if bottom, -1 if top
+    sign = 1 - 2 * side  # 1 if bottom, -1 if top
 
     # set initial values, stats bottom right (0,1) or top left (1,0)
     x = 1 - side
-    x0, x1 = x, 1-x
+    x0, x1 = x, 1 - x
     y = side
 
     if fxy(x, y) > 0:  # no root to start from on y axis, try x axis
         y = side
-        x = find_root_near(lambda _x: fxy(_x, y),
-                           lambda _x: df_dx(_x, y), 1-side, -sign)
+        x = find_root_near(
+            lambda _x: fxy(_x, y), lambda _x: df_dx(_x, y), 1 - side, -sign
+        )
         if x is None:  # positive and no root in x -> y is valid
             return y
         x0 = x
@@ -400,7 +393,7 @@ def find_limit(fxy: Callable[[float, float], float],
         y = find_root_between(lambda _y: fxy(x, _y), side, 1 - side)
 
         dx = sign * df_dx(x, y)
-        if dx < 0:   # implies down slope leaves domain, must be max
+        if dx < 0:  # implies down slope leaves domain, must be max
             return y
 
     # repeat until root within tolerance
@@ -419,10 +412,9 @@ def find_limit(fxy: Callable[[float, float], float],
         x = (x0 + x1) / 2
         z = fxy(x, y)
         # move y to new root
-        y = find_root_near(lambda _y: fxy(x, _y),
-                           lambda _y: df_dy(x, _y),
-                           y,
-                           sign if z < 0 else -sign)
+        y = find_root_near(
+            lambda _y: fxy(x, _y), lambda _y: df_dy(x, _y), y, sign if z < 0 else -sign
+        )
 
         if y is None:  # no roots at this x value or error
             return None if z < 0 else side
@@ -439,17 +431,15 @@ class Solver:
         self.scanner: Scanner = scanner
         self.body: Body = body
 
-        self.min_sma = body.radius + max(scanner.altitude_min,
-                                         body.safe_altitude)
-        self.max_sma = min(body.radius + scanner.altitude_max,
-                           body.soi_radius)
+        self.min_sma = body.radius + max(scanner.altitude_min, body.safe_altitude)
+        self.max_sma = min(body.radius + scanner.altitude_max, body.soi_radius)
 
         fov, fov_alt = get_scaled_fov_and_altitude(scanner, body)
         self.fov: float = fov
         self.fov_alt: float = fov_alt
         self.k: float = 180 * self.fov_alt / self.fov
 
-    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-= EQUATION STUFF =-=-=-=-=-=-=-=-=-=-=-=-=-=-= #
+    # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-= EQUATION STUFF =-=-=-=-=-=-=-=-=-=-=-=-=-=- #
 
     def _s(self, p: float, q: float, x: float, y: float) -> float:
         """S component of inequality (some rearrangement done)"""
@@ -461,13 +451,11 @@ class Solver:
 
     def _ds_dy(self, p: int, q: int, x: float, y: float):
         """partial derivative of S with respect to y"""
-        return -3 * p * x * y * (1 - y ** 2) ** (1 / 2) - 2 * q * x * (
-                    1 - y * x)
+        return -3 * p * x * y * (1 - y**2) ** (1 / 2) - 2 * q * x * (1 - y * x)
 
     def _f(self, p: int, q: int, x: float, y: float) -> float:
         """F component of inequality (some rearrangement done)"""
-        return (1 - y * y) * self.body.get_sma(p, q) - (
-                    1 - x * y) * self.body.radius
+        return (1 - y * y) * self.body.get_sma(p, q) - (1 - x * y) * self.body.radius
 
     def _df_dx(self, p: int, q: int, x: float, y: float) -> float:
         """partial derivative of F with respect to x"""
@@ -487,7 +475,7 @@ class Solver:
 
     def _dm_dy(self, p: int, q: int, x: float, y: float) -> float:
         """partial derivative of M with respect to y"""
-        return -3 * self.k * x ** 2 * (1 - x * y) ** 2
+        return -3 * self.k * x**2 * (1 - x * y) ** 2
 
     def _inequality_value(self, p: int, q: int, x: float, y: float) -> float:
         """Calculates difference between the two sides of the inequality"""
@@ -534,23 +522,20 @@ class Solver:
     def _fixed_track_d_dx(self, p: int, q: int, x: float, y: float) -> float:
         """x gradient of alternative inequality"""
         ds_dx = self._ds_dx(p, q, x, y)
-        dm_dx = (180 / self.fov) * (1 - x * y) * (
-                    1 - 3 * x * y)  # no altitude scaling
+        dm_dx = (180 / self.fov) * (1 - x * y) * (1 - 3 * x * y)  # no altitude scaling
 
         return ds_dx - dm_dx
 
     def _fixed_track_d_dy(self, p: int, q: int, x: float, y: float) -> float:
         """y gradient of alternative inequality"""
         ds_dy = self._ds_dy(p, q, x, y)
-        dm_dy = -2 * (180 / self.fov) * x ** 2 * (
-                    1 - x * y)  # no altitude scaling
+        dm_dy = -2 * (180 / self.fov) * x**2 * (1 - x * y)  # no altitude scaling
 
         return ds_dy - dm_dy
 
     # -=-=-=-=-=-=-=-=-=-=-=-=--=-=- SOLVER STUFF -=-=-=-=-=-=-=-=-=-=-=-=--=-=-= #
 
-    def check_free_track(self, p: int, q: int) \
-            -> Optional[tuple[float, float]]:
+    def check_free_track(self, p: int, q: int) -> Optional[tuple[float, float]]:
         """
         Checks if the original inequality with variable track width has valid y
         solutions with p & q
@@ -559,20 +544,24 @@ class Solver:
         :return: the found eccentricity limits, if any
         """
         # find the lower limit on eccentricity by increasing from bottom
-        e_min = find_limit(lambda x, y: self._inequality_value(p, q, x, y),
-                           lambda x, y: self._inequality_d_dx(p, q, x, y),
-                           lambda x, y: self._inequality_d_dy(p, q, x, y),
-                           BOTTOM)
+        e_min = find_limit(
+            lambda x, y: self._inequality_value(p, q, x, y),
+            lambda x, y: self._inequality_d_dx(p, q, x, y),
+            lambda x, y: self._inequality_d_dy(p, q, x, y),
+            BOTTOM,
+        )
 
         # none only returned if continuous < 0 from top to bottom: no solutions
         if e_min is None:
             return None
 
         # find the upper limit on eccentricity by descending from top
-        e_max = find_limit(lambda x, y: self._inequality_value(p, q, x, y),
-                           lambda x, y: self._inequality_d_dx(p, q, x, y),
-                           lambda x, y: self._inequality_d_dy(p, q, x, y),
-                           TOP)
+        e_max = find_limit(
+            lambda x, y: self._inequality_value(p, q, x, y),
+            lambda x, y: self._inequality_d_dx(p, q, x, y),
+            lambda x, y: self._inequality_d_dy(p, q, x, y),
+            TOP,
+        )
 
         # max < min means no continuous band
         if e_max is None or e_max < e_min:
@@ -580,8 +569,9 @@ class Solver:
 
         return e_min, e_max
 
-    def check_fixed_track(self, solution: SolutionParams) \
-            -> Optional[tuple[float, float]]:
+    def check_fixed_track(
+        self, solution: SolutionParams
+    ) -> Optional[tuple[float, float]]:
         """
         Solve variant equation with fixed track width. Will only be smaller
         than original above best altitude so validates solution in that
@@ -594,10 +584,12 @@ class Solver:
         a = self.body.get_sma(p, q)
         if a * (solution.e_min + 1) > self.fov_alt + self.body.radius:
             # find the lower limit on eccentricity by increasing from bottom
-            e_min = find_limit(lambda x, y: self._fixed_track_value(p, q, x, y),
-                                lambda x, y: self._fixed_track_d_dx(p, q, x, y),
-                                lambda x, y: self._fixed_track_d_dy(p, q, x, y),
-                                BOTTOM)
+            e_min = find_limit(
+                lambda x, y: self._fixed_track_value(p, q, x, y),
+                lambda x, y: self._fixed_track_d_dx(p, q, x, y),
+                lambda x, y: self._fixed_track_d_dy(p, q, x, y),
+                BOTTOM,
+            )
 
             # none only returned if continuous < 0 from top to bottom: no solutions
             if e_min is None or e_min > solution.e_max:
@@ -606,10 +598,12 @@ class Solver:
 
         if a * (solution.e_max + 1) > self.fov_alt + self.body.radius:
             # find the upper limit on eccentricity by descending from top
-            e_max = find_limit(lambda x, y: self._fixed_track_value(p, q, x, y),
-                                lambda x, y: self._fixed_track_d_dx(p, q, x, y),
-                                lambda x, y: self._fixed_track_d_dy(p, q, x, y),
-                                TOP)
+            e_max = find_limit(
+                lambda x, y: self._fixed_track_value(p, q, x, y),
+                lambda x, y: self._fixed_track_d_dx(p, q, x, y),
+                lambda x, y: self._fixed_track_d_dy(p, q, x, y),
+                TOP,
+            )
 
             # max < min means no continuous band
             if e_max is None or e_max < solution.e_min:
@@ -651,8 +645,9 @@ class Solver:
         return 0, min(e_safe, e_pole, e_apo, e_soi)
 
 
-def check_free_track(p: int, q: int, solvers: list[Solver]) \
-        -> Optional[tuple[float, float]]:
+def check_free_track(
+    p: int, q: int, solvers: list[Solver]
+) -> Optional[tuple[float, float]]:
     """
     See if this is a valid solution for all solvers. return the eccentricity
     bounds
@@ -671,9 +666,10 @@ def check_free_track(p: int, q: int, solvers: list[Solver]) \
             return None
     return e_min, e_max
 
-    
-def validate_fixed(solvers: list[Solver], solution: SolutionParams) \
-        -> Optional[SolutionParams]:
+
+def validate_fixed(
+    solvers: list[Solver], solution: SolutionParams
+) -> Optional[SolutionParams]:
     # solution = SolutionParams(p, q, 0, 1)
     for solver in solvers:
         solution = solver.check_fixed_track(solution)
@@ -694,8 +690,7 @@ def validate_hard(solvers, solution):
     return solution
 
 
-def find_fastest(body: Body, *scanners: Scanner) \
-        -> Optional[list[SolutionParams]]:
+def find_fastest(body: Body, *scanners: Scanner) -> Optional[list[SolutionParams]]:
     """
     Find the family of orbits that will complete the scan within the shortest
     period of time according to the equations set out in the header.
@@ -713,8 +708,8 @@ def find_fastest(body: Body, *scanners: Scanner) \
 
     max_sma = min(solver.max_sma for solver in solvers)
     min_sma = max(solver.min_sma for solver in solvers)
-    ratio_max = (body.geo_radius / max_sma) ** (3/2)
-    ratio_min = (body.geo_radius / min_sma) ** (3/2)
+    ratio_max = (body.geo_radius / max_sma) ** (3 / 2)
+    ratio_min = (body.geo_radius / min_sma) ** (3 / 2)
     # try all values of p
     for p in count(start=1):
         solutions = []
@@ -742,6 +737,15 @@ def find_fastest(body: Body, *scanners: Scanner) \
     return None
 
 
+def get_orbital_period(body: Body, sma: float) -> float:
+    """
+    Calculate the orbital period of a body using Kepler's third law.
+    :param body: The body to calculate the period for
+    :return: The orbital period in seconds
+    """
+    return 2 * pi * sqrt(sma**3 / body.standard_gravity)
+
+
 def get_user_input(args: argparse.Namespace) -> tuple[Body, list[Scanner]]:
     CUSTOM = "custom"
 
@@ -767,8 +771,7 @@ def get_user_input(args: argparse.Namespace) -> tuple[Body, list[Scanner]]:
         scanner_names = args.scanners.lower()
         scanner_names = scanner_names.split(",")
     else:
-        scanner_names = input(f"scanners [name|'{CUSTOM}'](space-separated): ") \
-            .lower()
+        scanner_names = input(f"scanners [name|'{CUSTOM}'](space-separated): ").lower()
         scanner_names = scanner_names.split(" ")
     scanners = []
     custom_n = 1
@@ -792,16 +795,12 @@ def main():
 
     parser = argparse.ArgumentParser(description="Scan Sat Optimal Solution Calculator")
 
-    parser.add_argument('-b',
-                        '--body',
-                        help="Body of Interest.",
-                        type=str)
+    parser.add_argument("-b", "--body", help="Body of Interest.", type=str)
 
-    parser.add_argument('-s',
-                        '--scanners',
-                        help="Comma Separated List of Equiped Scanners.",
-                        type=str)
-    
+    parser.add_argument(
+        "-s", "--scanners", help="Comma Separated List of Equiped Scanners.", type=str
+    )
+
     args = parser.parse_args()
 
     body, scanners = get_user_input(args)
@@ -824,19 +823,53 @@ def main():
     if solutions is None:
         print("No solutions found. Should not happen.")
     else:
+        table = []
+        seconds_per_day = int(DAY_LENGTH_HOURS * 3600)  # seconds in a day
         for solution in solutions:
             p, q = solution.p, solution.q
             e_min, e_max = solution.e_min, solution.e_max
             a = body.get_sma(p, q)
+            t = get_orbital_period(body, a)
+            total_period = t * q  # total time to complete scan
 
-            print(f"({p:3}/{q:3})\t\ta = {a:.3f}m\t\t"
-                  f"e = {e_min:.5f} to {e_max:.5f}")
+            # Convert total_period (seconds) to days, hours, minutes, seconds
+            days = int(total_period // seconds_per_day)
+            hours = int((total_period % seconds_per_day) // 3600)
+            minutes = int((total_period % 3600) // 60)
+            seconds = int(total_period % 60)
+
+            table.append(
+                [
+                    f"{p:3}/{q:3}",
+                    f"{a:.3f}",
+                    f"{e_min:.5f} to {e_max:.5f}",
+                    f"{t: 3}",
+                    f"{total_period: 3}",
+                    f"{days}d {hours}h {minutes}m {seconds}s",
+                ]
+            )
+
+        print(
+            tabulate(
+                table,
+                headers=[
+                    "Orbit",
+                    "SMA [m]",
+                    "Eccentricity",
+                    "Orbital Period [s]",
+                    "Total Period [s]",
+                    "Total Period",
+                ],
+                tablefmt="simple_grid",
+                floatfmt=".4f",
+            )
+        )
 
 
 def test_all():
     for b_name, body in BODIES.items():
         for s_name, scanner in SCANNERS.items():
-            print(f"{b_name}:{s_name} - ", end='')
+            print(f"{b_name}:{s_name} - ", end="")
             if scanner.altitude_min + body.radius > body.soi_radius:
                 print("Scanner requires altitude outside SOI")
                 continue
@@ -845,11 +878,11 @@ def test_all():
                 continue
             solutions = find_fastest(body, scanner)
             if solutions is None or len(solutions) == 0:
-                print("\33[31m", end='')
+                print("\33[31m", end="")
             elif len(solutions) == 1:
-                print("\33[33m", end='')
+                print("\33[33m", end="")
             else:
-                print("\33[32m", end='')
+                print("\33[32m", end="")
             print(f"{len(solutions)}\33[0m")
 
 
